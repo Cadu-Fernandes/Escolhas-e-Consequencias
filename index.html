@@ -57,8 +57,31 @@ html,body{width:100%;height:100%;background:var(--black);color:var(--text);font-
 .ind-track{width:55px;height:3px;background:rgba(255,255,255,.07);border-radius:2px;overflow:hidden}
 .ind-fill{height:100%;border-radius:2px;transition:width 1s ease,background .6s ease}
 
+/* Barra de indicadores mobile — fica abaixo do HUD, oculta em desktop */
+.hud-bars-mobile{
+  display:none;
+  position:absolute;
+  top:56px;left:0;right:0;
+  z-index:99;
+  background:rgba(5,5,7,.95);
+  border-bottom:1px solid var(--border);
+  padding:.45rem 1rem;
+  gap:.6rem;
+}
+.hud-bar-item{
+  display:flex;flex-direction:column;gap:4px;flex:1;
+}
+.hud-bar-item .ind-label{
+  font-family:var(--font-mono);font-size:.48rem;letter-spacing:.1em;
+  color:var(--text-dim);text-align:left;
+}
+.hud-bar-item .ind-track{
+  width:100%;height:4px;
+  background:rgba(255,255,255,.07);border-radius:2px;overflow:hidden;
+}
+
 /* CENA */
-#screen-game { display: flex; flex-direction: column; }
+#screen-game { display: flex; flex-direction: column; height: 100%; }
 
 /*
  * scene-wrap: ocupa o espaço restante abaixo do HUD.
@@ -70,8 +93,9 @@ html,body{width:100%;height:100%;background:var(--black);color:var(--text);font-
   position: relative;
   flex: 1;
   margin-top: 56px;
-  overflow: hidden;        /* esconde o bg que transborda */
+  min-height: 0;      /* essencial para flex-child ter altura calculável */
   cursor: pointer;
+  /* sem overflow:hidden — o scene-scroll (absolute) gerencia o próprio scroll */
 }
 
 /* Fundo — absolutamente posicionado, não participa do fluxo */
@@ -98,16 +122,17 @@ html,body{width:100%;height:100%;background:var(--black);color:var(--text);font-
  * O padding-top grande cria o efeito de "texto fica no fundo" como visual novel.
  */
 .scene-scroll {
-  position: relative;
+  /* position:absolute garante que ocupe exatamente o espaço do pai
+     em qualquer tamanho de tela, sem depender de height:100% em chain */
+  position: absolute;
+  inset: 0;
   z-index: 2;
-  height: 100%;
   display: flex;
   flex-direction: column;
-  justify-content: flex-end;   /* ancora tudo na base */
+  justify-content: flex-end;
   overflow-y: auto;
   overflow-x: hidden;
   scroll-behavior: smooth;
-  /* esconde scrollbar mas mantém funcionalidade */
   scrollbar-width: none;
 }
 .scene-scroll::-webkit-scrollbar { display: none; }
@@ -215,8 +240,8 @@ html,body{width:100%;height:100%;background:var(--black);color:var(--text);font-
 }
 
 /* STATS */
-#screen-stats{display:flex;align-items:center;justify-content:center;background:var(--deep);overflow-y:auto;padding:2rem}
-.stats-wrap{max-width:680px;width:100%;text-align:center}
+#screen-stats{display:flex;align-items:flex-start;justify-content:center;background:var(--deep);overflow-y:auto;padding:3rem 2rem 3rem}
+.stats-wrap{max-width:680px;width:100%;text-align:center;margin:auto}
 .stats-eyebrow{font-family:var(--font-mono);font-size:.62rem;letter-spacing:.4em;color:var(--text-dim);margin-bottom:.5rem}
 .stats-ending-name{font-family:var(--font-title);font-size:clamp(1.4rem,4vw,2rem);color:var(--gold);margin-bottom:1rem}
 .stats-ending-desc{font-family:var(--font-body);font-size:1rem;font-style:italic;color:var(--text-muted);line-height:1.75;max-width:500px;margin:0 auto 2.5rem}
@@ -255,10 +280,17 @@ html,body{width:100%;height:100%;background:var(--black);color:var(--text);font-
 /* Mobile */
 @media(max-width:540px){
   .game-hud  { padding: 0 .8rem; height: 48px; }
-  .scene-wrap { margin-top: 48px; }
 
-  /* HUD: esconder indicadores, mostrar só personagem */
+  /* Ocultar indicadores do HUD principal — aparecem na barra mobile abaixo */
   .hud-right  { display: none; }
+  .hud-center { display: none; }
+
+  /* Ativar barra de indicadores mobile */
+  .hud-bars-mobile { display: flex; top: 48px; }
+
+  /* scene-wrap desce: HUD(48px) + barra mobile(26px) */
+  .scene-wrap { margin-top: calc(48px + 26px); }
+
   .ch-num     { font-size: 1.1rem; }
   .char-name  { font-size: .65rem; }
 
@@ -276,7 +308,7 @@ html,body{width:100%;height:100%;background:var(--black);color:var(--text);font-
   .choices-list   { gap: .35rem; }
   .choice-btn     { font-size: .9rem; padding: .6rem .75rem; gap: .5rem; }
   .choice-letter  { font-size: .65rem; min-width: 14px; }
-  .choice-tag     { display: none; }   /* economiza espaço no mobile */
+  .choice-tag     { display: none; }
   .btn-continue   { font-size: .62rem; padding: .45rem 1rem; margin-top: .9rem; }
 
   /* Stats */
@@ -359,9 +391,27 @@ html,body{width:100%;height:100%;background:var(--black);color:var(--text);font-
           <div class="ind-track"><div class="ind-fill" id="iAu" style="width:10%;background:var(--red)"></div></div>
         </div>
       </div>
-    </div>
+    </div><!-- /game-hud -->
 
-    <!-- Cena: clique na área de texto para pular/continuar -->
+    <!-- Barras de indicadores para mobile (abaixo do HUD) -->
+    <div class="hud-bars-mobile" id="hudBarsMobile">
+      <div class="hud-bar-item">
+        <div class="ind-label">EMPRESA</div>
+        <div class="ind-track"><div class="ind-fill" id="iCoM" style="width:50%;background:var(--blue)"></div></div>
+      </div>
+      <div class="hud-bar-item">
+        <div class="ind-label">CONFIANÇA</div>
+        <div class="ind-track"><div class="ind-fill" id="iTrM" style="width:50%;background:var(--green)"></div></div>
+      </div>
+      <div class="hud-bar-item">
+        <div class="ind-label">REPUTAÇÃO</div>
+        <div class="ind-track"><div class="ind-fill" id="iReM" style="width:50%;background:var(--amber)"></div></div>
+      </div>
+      <div class="hud-bar-item">
+        <div class="ind-label">AUTOMAÇÃO</div>
+        <div class="ind-track"><div class="ind-fill" id="iAuM" style="width:10%;background:var(--red)"></div></div>
+      </div>
+    </div>
     <div class="scene-wrap" id="sceneWrap">
 
       <!-- Camada de fundo (absoluta, não participa do fluxo) -->
@@ -751,13 +801,21 @@ const G = {
     const v=this.vars;
     const set=(id,val,def)=>{
       const el=this.$(id);
+      if(!el) return;
       el.style.width=val+'%';
       el.style.background=val<30?'#e05050':val<60?'#e8a030':def;
     };
+    // Desktop
     set('iCo',v.company,'#4a9eff');
     set('iTr',v.trust,'#4acf7a');
     set('iRe',v.reputation,'#e8a030');
     this.$('iAu').style.width=v.automation+'%';
+    // Mobile (barra secundária)
+    set('iCoM',v.company,'#4a9eff');
+    set('iTrM',v.trust,'#4acf7a');
+    set('iReM',v.reputation,'#e8a030');
+    const auM=this.$('iAuM');
+    if(auM) auM.style.width=v.automation+'%';
   },
 
   ending(){
