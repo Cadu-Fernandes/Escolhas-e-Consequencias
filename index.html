@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Human Error — Quando as máquinas fazem tudo melhor, o que sobra para nós?</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Crimson+Pro:ital,wght@0,300;0,400;0,600;1,300;1,400&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="src/styles/main.css">
+</head>
+<body>
+<div id="game-root">
+  <div id="screen-intro" class="screen active">
+    <div class="intro-bg">
+      <div class="grid-overlay"></div>
+      <div class="noise-overlay"></div>
+    </div>
+    <div class="intro-content">
+      <div class="intro-year">2038</div>
+      <h1 class="intro-title">HUMAN<br><span>ERROR</span></h1>
+      <p class="intro-subtitle">Quando as máquinas fazem tudo melhor,<br>o que sobra para nós?</p>
+      <div class="intro-stats-bar">
+        <span class="stat-item"><span class="stat-number">4.2B</span> humanos desempregados</span>
+        <span class="stat-sep">///</span>
+        <span class="stat-item"><span class="stat-number">847</span> dias desde o Ato de Automação</span>
+        <span class="stat-sep">///</span>
+        <span class="stat-item"><span class="stat-number">93%</span> dos setores automatizados</span>
+      </div>
+      <button class="btn-start" onclick="gameEngine.startGame()">INICIAR EXPERIÊNCIA</button>
+      <p class="intro-warning">⚠ Este jogo contém dilemas morais sem respostas corretas.<br>Suas decisões terão consequências.</p>
+    </div>
+  </div>
+
+  <div id="screen-game" class="screen">
+    <div class="game-hud">
+      <div class="hud-left">
+        <div class="chapter-info">
+          <span class="chapter-label">CAPÍTULO</span>
+          <span id="hud-chapter">1</span>
+        </div>
+        <div class="character-info">
+          <span class="char-icon" id="hud-char-icon">⬡</span>
+          <span id="hud-character">CARLOS RODRIGUES</span>
+          <span class="char-role" id="hud-char-role">CEO · NexaCorp</span>
+        </div>
+      </div>
+      <div class="hud-center">
+        <div class="hud-title" id="hud-scene-title"></div>
+      </div>
+      <div class="hud-right">
+        <div class="indicators">
+          <div class="indicator" title="Saúde financeira da empresa">
+            <div class="ind-label">EMPRESA</div>
+            <div class="ind-bar"><div class="ind-fill ind-blue" id="ind-company"></div></div>
+          </div>
+          <div class="indicator" title="Confiança dos funcionários">
+            <div class="ind-label">CONFIANÇA</div>
+            <div class="ind-bar"><div class="ind-fill ind-green" id="ind-trust"></div></div>
+          </div>
+          <div class="indicator" title="Reputação pública">
+            <div class="ind-label">REPUTAÇÃO</div>
+            <div class="ind-bar"><div class="ind-fill ind-amber" id="ind-reputation"></div></div>
+          </div>
+          <div class="indicator" title="Nível de automação">
+            <div class="ind-label">AUTOMAÇÃO</div>
+            <div class="ind-bar"><div class="ind-fill ind-red" id="ind-automation"></div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="scene-container">
+      <div class="scene-visual" id="scene-visual">
+        <div class="scene-bg" id="scene-bg"></div>
+        <div class="scene-overlay"></div>
+      </div>
+
+      <div class="scene-narrative">
+        <div class="narrative-header" id="narrative-header">
+          <div class="narrator-tag" id="narrator-tag">NARRADOR</div>
+          <div class="scene-location" id="scene-location"></div>
+        </div>
+        <div class="narrative-text" id="narrative-text"></div>
+        <div class="narrative-continue" id="narrative-continue" style="display:none">
+          <button class="btn-continue" onclick="gameEngine.continueScene()">
+            <span>CONTINUAR</span>
+            <span class="btn-arrow">▶</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div class="choices-panel" id="choices-panel" style="display:none">
+      <div class="choices-header">
+        <span class="choices-label">⬡ DECISÃO REQUERIDA</span>
+        <span class="choices-timer" id="choices-timer"></span>
+      </div>
+      <div class="choices-list" id="choices-list"></div>
+    </div>
+
+    <div class="consequence-flash" id="consequence-flash" style="display:none">
+      <div class="cf-inner">
+        <div class="cf-label">CONSEQUÊNCIA</div>
+        <div class="cf-text" id="cf-text"></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="screen-stats" class="screen">
+    <div class="stats-container">
+      <h2 class="stats-title">RELATÓRIO FINAL</h2>
+      <h3 class="stats-subtitle" id="stats-ending-name"></h3>
+      <p class="stats-ending-desc" id="stats-ending-desc"></p>
+
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-card-value" id="stat-jobs-saved">0</div>
+          <div class="stat-card-label">Empregos Preservados</div>
+        </div>
+        <div class="stat-card danger">
+          <div class="stat-card-value" id="stat-jobs-lost">0</div>
+          <div class="stat-card-label">Empregos Perdidos</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-card-value" id="stat-profit">0%</div>
+          <div class="stat-card-label">Lucro Acumulado</div>
+        </div>
+        <div class="stat-card danger">
+          <div class="stat-card-value" id="stat-auto">0%</div>
+          <div class="stat-card-label">Nível de Automação</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-card-value" id="stat-rep">0%</div>
+          <div class="stat-card-label">Aprovação Pública</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-card-value" id="stat-impact">0</div>
+          <div class="stat-card-label">Índice de Impacto Social</div>
+        </div>
+      </div>
+
+      <div class="key-decisions">
+        <h4>DECISÕES MARCANTES</h4>
+        <div id="key-decisions-list"></div>
+      </div>
+
+      <button class="btn-start" onclick="gameEngine.restartGame()" style="margin-top:2rem">JOGAR NOVAMENTE</button>
+    </div>
+  </div>
+</div>
+
+<script src="src/data/story.js"></script>
+<script src="src/data/characters.js"></script>
+<script src="src/engine.js"></script>
+</body>
+</html>
