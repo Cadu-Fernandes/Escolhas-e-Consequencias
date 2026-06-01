@@ -113,4 +113,4 @@ Para deploy online: GitHub Pages, Netlify ou Vercel.
 
 ---
 
-**Human Error** — Projeto de Narrativa Interativa, 2025
+**Human Error** — Projeto de Narrativa Interativa, 2026
