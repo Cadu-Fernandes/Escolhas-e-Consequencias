@@ -11,6 +11,8 @@
 
 O jogo não tem heróis ou vilões. Tem humanos tomando decisões difíceis.
 
+Caso queira testá-lo, basta clicar neste link <a href="https://cadu-fernandes.github.io/Escolhas-e-Consequencias/">Escolhas e Consequências </a>
+
 ---
 
 ## Personagens
