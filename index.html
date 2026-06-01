@@ -3,154 +3,819 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Human Error — Quando as máquinas fazem tudo melhor, o que sobra para nós?</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Crimson+Pro:ital,wght@0,300;0,400;0,600;1,300;1,400&family=Share+Tech+Mono&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="src/styles/main.css">
+<title>Human Error — 2038</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Crimson+Pro:ital,wght@0,300;0,400;0,600;1,300;1,400&family=Share+Tech+Mono&display=swap');
+
+:root {
+  --black: #050507; --deep: #0a0b10; --surface: #111219;
+  --border: rgba(255,255,255,0.07); --border2: rgba(255,255,255,0.14);
+  --text: #e8e4d8; --text-muted: #7a7870; --text-dim: #4a4840;
+  --gold: #c9a84c; --gold-dim: #7a6130;
+  --blue: #4a9eff; --red: #e05050; --green: #4acf7a; --amber: #e8a030;
+  --font-title: 'Cinzel','Georgia',serif;
+  --font-body: 'Crimson Pro','Georgia',serif;
+  --font-mono: 'Share Tech Mono','Courier New',monospace;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{width:100%;height:100%;background:var(--black);color:var(--text);font-family:var(--font-body);overflow:hidden;user-select:none}
+#game-root{width:100vw;height:100vh;position:relative}
+.screen{position:absolute;top:0;left:0;width:100%;height:100%;opacity:0;pointer-events:none;transition:opacity .8s ease}
+.screen.active{opacity:1;pointer-events:all}
+
+/* INTRO */
+#screen-intro{display:flex;align-items:center;justify-content:center;overflow:hidden}
+.intro-bg{position:absolute;inset:0;background:radial-gradient(ellipse at 30% 50%,rgba(40,30,80,.5) 0%,transparent 60%),radial-gradient(ellipse at 70% 20%,rgba(80,20,20,.3) 0%,transparent 50%),var(--deep)}
+.grid-overlay{position:absolute;inset:0;background-image:linear-gradient(rgba(255,255,255,.025) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.025) 1px,transparent 1px);background-size:60px 60px;mask-image:radial-gradient(ellipse at center,black 40%,transparent 80%);-webkit-mask-image:radial-gradient(ellipse at center,black 40%,transparent 80%)}
+.intro-content{position:relative;text-align:center;z-index:2;animation:fadeUp 1.2s ease both;padding:1.5rem}
+@keyframes fadeUp{from{opacity:0;transform:translateY(30px)}to{opacity:1;transform:translateY(0)}}
+.intro-year{font-family:var(--font-mono);font-size:.85rem;letter-spacing:.5em;color:var(--gold);margin-bottom:1.5rem;animation:fadeUp 1.2s .2s ease both}
+.intro-title{font-family:var(--font-title);font-size:clamp(3rem,11vw,8.5rem);font-weight:700;line-height:.9;letter-spacing:.05em;color:var(--text);text-shadow:0 0 80px rgba(201,168,76,.15);animation:fadeUp 1.2s .35s ease both}
+.intro-title span{color:var(--gold);display:block}
+.intro-subtitle{font-family:var(--font-body);font-size:clamp(.9rem,2vw,1.05rem);font-style:italic;color:var(--text-muted);margin-top:1.5rem;line-height:1.6;animation:fadeUp 1.2s .5s ease both}
+.intro-stats-bar{display:flex;align-items:center;justify-content:center;gap:.8rem;margin:2rem 0;font-family:var(--font-mono);font-size:clamp(.55rem,.9vw,.65rem);color:var(--text-dim);letter-spacing:.05em;animation:fadeUp 1.2s .65s ease both;flex-wrap:wrap}
+.stat-number{color:var(--red);font-weight:700}
+.stat-sep{color:var(--text-dim);opacity:.4}
+.btn-main{font-family:var(--font-title);font-size:.85rem;letter-spacing:.2em;color:var(--black);background:var(--gold);border:none;padding:.9rem 2.8rem;cursor:pointer;transition:all .3s ease;clip-path:polygon(8px 0%,100% 0%,calc(100% - 8px) 100%,0% 100%);animation:fadeUp 1.2s .8s ease both}
+.btn-main:hover{background:#e0b85a;transform:translateY(-2px);box-shadow:0 10px 40px rgba(201,168,76,.3)}
+.intro-warning{font-family:var(--font-mono);font-size:.65rem;color:var(--text-dim);margin-top:2rem;line-height:1.8;animation:fadeUp 1.2s .95s ease both}
+
+/* HUD */
+.game-hud{position:absolute;top:0;left:0;right:0;height:56px;display:flex;align-items:center;justify-content:space-between;padding:0 1.5rem;background:linear-gradient(to bottom,rgba(5,5,7,.97),transparent);z-index:100;border-bottom:1px solid var(--border)}
+.hud-left{display:flex;align-items:center;gap:1.2rem;flex-shrink:0}
+.chapter-badge{display:flex;flex-direction:column;align-items:center}
+.ch-label{font-family:var(--font-mono);font-size:.5rem;letter-spacing:.2em;color:var(--text-dim)}
+.ch-num{font-family:var(--font-title);font-size:1.4rem;color:var(--gold);line-height:1}
+.char-block{display:flex;align-items:center;gap:.5rem;border-left:1px solid var(--border2);padding-left:1.2rem}
+.char-icon{font-size:1rem}
+.char-name{font-family:var(--font-title);font-size:.72rem;letter-spacing:.08em;color:var(--text)}
+.char-role{font-family:var(--font-mono);font-size:.55rem;color:var(--text-muted);margin-left:.25rem}
+.hud-center{position:absolute;left:50%;transform:translateX(-50%);font-family:var(--font-mono);font-size:.6rem;letter-spacing:.3em;color:var(--text-dim);text-align:center;white-space:nowrap}
+.hud-right{display:flex;gap:.8rem;flex-shrink:0}
+.indicator{display:flex;flex-direction:column;align-items:flex-end;gap:3px}
+.ind-label{font-family:var(--font-mono);font-size:.46rem;letter-spacing:.1em;color:var(--text-dim)}
+.ind-track{width:55px;height:3px;background:rgba(255,255,255,.07);border-radius:2px;overflow:hidden}
+.ind-fill{height:100%;border-radius:2px;transition:width 1s ease,background .6s ease}
+
+/* CENA */
+#screen-game { display: flex; flex-direction: column; }
+
+/*
+ * scene-wrap: ocupa o espaço restante abaixo do HUD.
+ * Tem duas camadas:
+ *   1. scene-bg-layer  — background fixo (position:absolute)
+ *   2. scene-scroll    — coluna scrollável com texto + choices
+ */
+.scene-wrap {
+  position: relative;
+  flex: 1;
+  margin-top: 56px;
+  overflow: hidden;        /* esconde o bg que transborda */
+  cursor: pointer;
+}
+
+/* Fundo — absolutamente posicionado, não participa do fluxo */
+.scene-bg-layer { position: absolute; inset: 0; pointer-events: none; z-index: 0; }
+.scene-bg { position: absolute; inset: 0; transition: background 1.5s ease; }
+.bg-office    { background: radial-gradient(ellipse at 40% 50%, #14101c 0%, #060608 100%); }
+.bg-boardroom { background: radial-gradient(ellipse at 60% 30%, #120d06 0%, #060504 100%); }
+.bg-factory   { background: radial-gradient(ellipse at 50% 60%, #061018 0%, #030508 100%); }
+.bg-street    { background: radial-gradient(ellipse at 30% 70%, #0c0906 0%, #050507 100%); }
+.bg-newsroom  { background: radial-gradient(ellipse at 70% 40%, #0c0a10 0%, #050507 100%); }
+.bg-server    { background: radial-gradient(ellipse at 50% 50%, #041020 0%, #020508 100%); }
+.bg-home      { background: radial-gradient(ellipse at 40% 60%, #0e0b08 0%, #050504 100%); }
+.scene-grid { position: absolute; inset: 0; background-image: linear-gradient(rgba(255,255,255,.015) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.015) 1px, transparent 1px); background-size: 80px 80px; opacity: 0; transition: opacity 1s ease; }
+.scene-grid.visible { opacity: 1; }
+
+/* Vinheta: só no topo (cobre o bg), parte de baixo fica sólida no scroll */
+.scene-vignette { position: absolute; inset: 0; pointer-events: none; z-index: 1;
+  background: linear-gradient(to bottom, rgba(5,5,7,.55) 0%, transparent 28%, transparent 45%, rgba(5,5,7,.9) 75%, rgba(5,5,7,1) 100%);
+}
+
+/*
+ * scene-scroll: coluna flex que empilha texto e choices verticalmente.
+ * Ocupa 100% da scene-wrap, rola se o conteúdo exceder a altura.
+ * O padding-top grande cria o efeito de "texto fica no fundo" como visual novel.
+ */
+.scene-scroll {
+  position: relative;
+  z-index: 2;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;   /* ancora tudo na base */
+  overflow-y: auto;
+  overflow-x: hidden;
+  scroll-behavior: smooth;
+  /* esconde scrollbar mas mantém funcionalidade */
+  scrollbar-width: none;
+}
+.scene-scroll::-webkit-scrollbar { display: none; }
+
+/* Bloco de narrativa — cresce com o texto, fica acima das choices */
+.scene-narrative {
+  position: relative;
+  z-index: 10;
+  padding: 2rem 2.5rem 1.4rem;
+  max-width: 900px;
+  width: 100%;
+  flex-shrink: 0;             /* nunca encolhe */
+}
+.narrative-header { display: flex; align-items: center; gap: .9rem; margin-bottom: .65rem; }
+.speaker-tag { font-family: var(--font-mono); font-size: .62rem; letter-spacing: .18em; padding: .22rem .7rem; clip-path: polygon(5px 0%, 100% 0%, calc(100% - 5px) 100%, 0% 100%); transition: all .4s ease; }
+.scene-loc { font-family: var(--font-mono); font-size: .56rem; letter-spacing: .14em; color: var(--text-dim); }
+.narrative-text { font-family: var(--font-body); font-size: clamp(.95rem, 1.8vw, 1.15rem); font-weight: 300; line-height: 1.82; color: var(--text); min-height: 60px; }
+
+/* hint de skip */
+.skip-hint { display: inline-block; font-family: var(--font-mono); font-size: .52rem; letter-spacing: .15em; color: var(--text-dim); margin-top: .6rem; opacity: 0; transition: opacity .5s ease; }
+.skip-hint.visible { opacity: 1; }
+
+.btn-continue { font-family: var(--font-mono); font-size: .7rem; letter-spacing: .18em; color: var(--gold); background: transparent; border: 1px solid rgba(201,168,76,.28); padding: .55rem 1.4rem; cursor: pointer; display: inline-flex; align-items: center; gap: .7rem; margin-top: 1.2rem; transition: all .3s ease; }
+.btn-continue:hover { background: rgba(201,168,76,.07); border-color: rgba(201,168,76,.55); }
+.btn-arrow { animation: pulse 1.6s ease infinite; font-size: .5rem; }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.25} }
+
+/*
+ * Painel de escolhas — flow normal, fica ABAIXO do .scene-narrative.
+ * NÃO é position:absolute. O scroll garante que o texto fique visível acima.
+ */
+.choices-panel {
+  position: relative;
+  z-index: 20;
+  background: linear-gradient(to bottom, rgba(5,5,7,.85) 0%, rgba(5,5,7,.99) 30%);
+  padding: 1rem 2.5rem 2rem;
+  border-top: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.choices-header{display:flex;align-items:center;margin-bottom:.8rem}
+.choices-label{font-family:var(--font-mono);font-size:.6rem;letter-spacing:.25em;color:var(--gold)}
+.choices-list{display:flex;flex-direction:column;gap:.45rem}
+.choice-btn{width:100%;background:rgba(255,255,255,.018);border:1px solid var(--border2);color:var(--text);font-family:var(--font-body);font-size:clamp(.9rem,1.6vw,1rem);font-weight:300;padding:.75rem 1rem;text-align:left;cursor:pointer;display:flex;align-items:flex-start;gap:.75rem;position:relative;overflow:hidden;transition:background .25s ease,border-color .25s ease,transform .2s ease}
+.choice-btn::before{content:'';position:absolute;left:0;top:0;bottom:0;width:2px;background:var(--gold);transform:scaleY(0);transition:transform .25s ease}
+.choice-btn:hover{background:rgba(201,168,76,.045);border-color:rgba(201,168,76,.28);transform:translateX(3px)}
+.choice-btn:hover::before{transform:scaleY(1)}
+.choice-letter{font-family:var(--font-title);font-size:.72rem;color:var(--gold-dim);min-width:18px;margin-top:2px;transition:color .25s ease}
+.choice-btn:hover .choice-letter{color:var(--gold)}
+.choice-text{flex:1;line-height:1.5}
+.choice-tag{font-family:var(--font-mono);font-size:.5rem;letter-spacing:.08em;color:var(--text-dim);border:1px solid var(--border);padding:.18rem .45rem;align-self:flex-start;margin-top:2px;white-space:nowrap}
+
+/* FLASH CONSEQUÊNCIA */
+.consequence-overlay{position:fixed;inset:0;z-index:300;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.82);animation:cfShow 3.6s ease forwards}
+@keyframes cfShow{0%{opacity:0}12%{opacity:1}75%{opacity:1}100%{opacity:0}}
+.cf-box{text-align:center;padding:2.5rem 3rem;border:1px solid var(--border2);background:var(--surface);max-width:480px;margin:1rem}
+.cf-label{font-family:var(--font-mono);font-size:.58rem;letter-spacing:.4em;color:var(--red);margin-bottom:1rem}
+.cf-text{font-family:var(--font-body);font-size:1.1rem;font-style:italic;color:var(--text);line-height:1.7}
+
+/* TRANSIÇÃO DE CAPÍTULO */
+.chapter-transition {
+  position: fixed; inset: 0; z-index: 400;
+  background: var(--black);
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  animation: ctFade 3.2s ease forwards;
+}
+@keyframes ctFade { 0%{opacity:0} 12%{opacity:1} 75%{opacity:1} 100%{opacity:0} }
+
+/* Inner: entra com slide-up suave */
+.chapter-transition-inner {
+  text-align: center;
+  opacity: 0;
+  transform: translateY(18px);
+  transition: opacity 0.7s ease, transform 0.7s ease;
+}
+.chapter-transition-inner.show {
+  opacity: 1;
+  transform: translateY(0);
+}
+.ct-num {
+  font-family: var(--font-mono);
+  font-size: .62rem;
+  letter-spacing: .45em;
+  color: var(--text-dim);
+  margin-bottom: .9rem;
+}
+.ct-title {
+  font-family: var(--font-title);
+  font-size: clamp(1.4rem, 4vw, 2.1rem);
+  color: var(--gold);
+  letter-spacing: .08em;
+  text-align: center;
+  padding: 0 1rem;
+}
+.ct-line {
+  width: 56px; height: 1px;
+  background: rgba(201,168,76,.3);
+  margin: 1.2rem auto;
+}
+.ct-char {
+  font-family: var(--font-body);
+  font-size: .9rem;
+  font-style: italic;
+  color: var(--text-dim);
+}
+
+/* STATS */
+#screen-stats{display:flex;align-items:center;justify-content:center;background:var(--deep);overflow-y:auto;padding:2rem}
+.stats-wrap{max-width:680px;width:100%;text-align:center}
+.stats-eyebrow{font-family:var(--font-mono);font-size:.62rem;letter-spacing:.4em;color:var(--text-dim);margin-bottom:.5rem}
+.stats-ending-name{font-family:var(--font-title);font-size:clamp(1.4rem,4vw,2rem);color:var(--gold);margin-bottom:1rem}
+.stats-ending-desc{font-family:var(--font-body);font-size:1rem;font-style:italic;color:var(--text-muted);line-height:1.75;max-width:500px;margin:0 auto 2.5rem}
+.stats-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:.9rem;margin-bottom:2rem}
+.stat-card{background:var(--surface);border:1px solid var(--border2);padding:1.1rem}
+.stat-card-val{font-family:var(--font-title);font-size:1.9rem;color:var(--gold);display:block}
+.stat-card.danger .stat-card-val{color:var(--red)}
+.stat-card-lbl{font-family:var(--font-mono);font-size:.52rem;letter-spacing:.08em;color:var(--text-dim);margin-top:.3rem}
+.decisions-block{text-align:left;border-top:1px solid var(--border);padding-top:1.4rem;margin-bottom:2rem}
+.decisions-block h4{font-family:var(--font-mono);font-size:.58rem;letter-spacing:.3em;color:var(--text-dim);margin-bottom:.9rem}
+.dec-entry{display:flex;gap:.9rem;align-items:flex-start;margin-bottom:.7rem;padding-left:.9rem;border-left:2px solid var(--border2)}
+.dec-ch{font-family:var(--font-mono);font-size:.56rem;color:var(--gold-dim);min-width:68px;margin-top:2px}
+.dec-txt{font-family:var(--font-body);font-size:.9rem;color:var(--text-muted)}
+
+/* ── RESPONSIVO ─────────────────────────────────────────── */
+
+/* Tablet e telas menores */
+@media(max-width:768px){
+  .game-hud { padding: 0 1rem; height: 52px; }
+  .scene-wrap { margin-top: 52px; }
+  .char-role  { display: none; }
+  .hud-center { display: none; }
+  .hud-right  { gap: .5rem; }
+  .ind-track  { width: 44px; }
+
+  .scene-narrative { padding: 1.5rem 1.5rem 1rem; }
+  .narrative-text  { font-size: 1rem; line-height: 1.75; }
+
+  .choices-panel { padding: .9rem 1.5rem 1.4rem; }
+  .choice-btn    { font-size: .95rem; padding: .7rem .9rem; }
+
+  .stats-grid { grid-template-columns: repeat(2,1fr); gap: .7rem; }
+  .stats-ending-desc { font-size: .93rem; }
+}
+
+/* Mobile */
+@media(max-width:540px){
+  .game-hud  { padding: 0 .8rem; height: 48px; }
+  .scene-wrap { margin-top: 48px; }
+
+  /* HUD: esconder indicadores, mostrar só personagem */
+  .hud-right  { display: none; }
+  .ch-num     { font-size: 1.1rem; }
+  .char-name  { font-size: .65rem; }
+
+  /* Narrativa mais compacta */
+  .scene-narrative { padding: 1.2rem 1rem .8rem; }
+  .narrative-text  { font-size: .95rem; line-height: 1.7; min-height: 50px; }
+  .speaker-tag     { font-size: .56rem; letter-spacing: .12em; }
+  .scene-loc       { font-size: .5rem; }
+  .skip-hint       { font-size: .46rem; }
+
+  /* Choices: mais compactos, sem tag */
+  .choices-panel  { padding: .7rem .9rem 1.2rem; }
+  .choices-header { margin-bottom: .55rem; }
+  .choices-label  { font-size: .55rem; }
+  .choices-list   { gap: .35rem; }
+  .choice-btn     { font-size: .9rem; padding: .6rem .75rem; gap: .5rem; }
+  .choice-letter  { font-size: .65rem; min-width: 14px; }
+  .choice-tag     { display: none; }   /* economiza espaço no mobile */
+  .btn-continue   { font-size: .62rem; padding: .45rem 1rem; margin-top: .9rem; }
+
+  /* Stats */
+  .stats-wrap        { padding: 1.5rem 1rem; }
+  .stats-grid        { grid-template-columns: 1fr 1fr; gap: .55rem; }
+  .stat-card         { padding: .8rem; }
+  .stat-card-val     { font-size: 1.5rem; }
+  .stats-ending-desc { font-size: .88rem; }
+  .btn-main          { padding: .75rem 1.8rem; font-size: .78rem; }
+
+  /* Consequência e transição */
+  .cf-box  { padding: 1.5rem; margin: .8rem; }
+  .cf-text { font-size: .95rem; }
+  .ct-title { font-size: 1.3rem; }
+}
+
+/* Mobile muito pequeno */
+@media(max-width:360px){
+  .stats-grid { grid-template-columns: 1fr 1fr; }
+  .intro-stats-bar { flex-direction: column; gap: .25rem; }
+  .stat-sep { display: none; }
+  .intro-title { font-size: clamp(2.5rem,16vw,4rem); }
+  .hud-left { gap: .7rem; }
+  .char-block { padding-left: .7rem; }
+}
+</style>
 </head>
 <body>
 <div id="game-root">
+
+  <!-- INTRO -->
   <div id="screen-intro" class="screen active">
-    <div class="intro-bg">
-      <div class="grid-overlay"></div>
-      <div class="noise-overlay"></div>
-    </div>
+    <div class="intro-bg"><div class="grid-overlay"></div></div>
     <div class="intro-content">
       <div class="intro-year">2038</div>
-      <h1 class="intro-title">HUMAN<br><span>ERROR</span></h1>
+      <h1 class="intro-title">HUMAN<span>ERROR</span></h1>
       <p class="intro-subtitle">Quando as máquinas fazem tudo melhor,<br>o que sobra para nós?</p>
       <div class="intro-stats-bar">
-        <span class="stat-item"><span class="stat-number">4.2B</span> humanos desempregados</span>
+        <span><span class="stat-number">4,2B</span> humanos desempregados</span>
         <span class="stat-sep">///</span>
-        <span class="stat-item"><span class="stat-number">847</span> dias desde o Ato de Automação</span>
+        <span><span class="stat-number">847</span> dias desde o Ato de Automação</span>
         <span class="stat-sep">///</span>
-        <span class="stat-item"><span class="stat-number">93%</span> dos setores automatizados</span>
+        <span><span class="stat-number">93%</span> dos setores automatizados</span>
       </div>
-      <button class="btn-start" onclick="gameEngine.startGame()">INICIAR EXPERIÊNCIA</button>
+      <button class="btn-main" onclick="G.start()">INICIAR EXPERIÊNCIA</button>
       <p class="intro-warning">⚠ Este jogo contém dilemas morais sem respostas corretas.<br>Suas decisões terão consequências.</p>
     </div>
   </div>
 
+  <!-- JOGO -->
   <div id="screen-game" class="screen">
     <div class="game-hud">
       <div class="hud-left">
-        <div class="chapter-info">
-          <span class="chapter-label">CAPÍTULO</span>
-          <span id="hud-chapter">1</span>
+        <div class="chapter-badge">
+          <span class="ch-label">CAPÍTULO</span>
+          <span class="ch-num" id="hChap">1</span>
         </div>
-        <div class="character-info">
-          <span class="char-icon" id="hud-char-icon">⬡</span>
-          <span id="hud-character">CARLOS RODRIGUES</span>
-          <span class="char-role" id="hud-char-role">CEO · NexaCorp</span>
+        <div class="char-block">
+          <span class="char-icon" id="hIcon">⬡</span>
+          <span class="char-name" id="hName">CARLOS RODRIGUES</span>
+          <span class="char-role" id="hRole">CEO · NexaCorp</span>
         </div>
       </div>
-      <div class="hud-center">
-        <div class="hud-title" id="hud-scene-title"></div>
-      </div>
+      <div class="hud-center" id="hTitle"></div>
       <div class="hud-right">
-        <div class="indicators">
-          <div class="indicator" title="Saúde financeira da empresa">
-            <div class="ind-label">EMPRESA</div>
-            <div class="ind-bar"><div class="ind-fill ind-blue" id="ind-company"></div></div>
-          </div>
-          <div class="indicator" title="Confiança dos funcionários">
-            <div class="ind-label">CONFIANÇA</div>
-            <div class="ind-bar"><div class="ind-fill ind-green" id="ind-trust"></div></div>
-          </div>
-          <div class="indicator" title="Reputação pública">
-            <div class="ind-label">REPUTAÇÃO</div>
-            <div class="ind-bar"><div class="ind-fill ind-amber" id="ind-reputation"></div></div>
-          </div>
-          <div class="indicator" title="Nível de automação">
-            <div class="ind-label">AUTOMAÇÃO</div>
-            <div class="ind-bar"><div class="ind-fill ind-red" id="ind-automation"></div></div>
-          </div>
+        <div class="indicator">
+          <div class="ind-label">EMPRESA</div>
+          <div class="ind-track"><div class="ind-fill" id="iCo" style="width:50%;background:var(--blue)"></div></div>
+        </div>
+        <div class="indicator">
+          <div class="ind-label">CONFIANÇA</div>
+          <div class="ind-track"><div class="ind-fill" id="iTr" style="width:50%;background:var(--green)"></div></div>
+        </div>
+        <div class="indicator">
+          <div class="ind-label">REPUTAÇÃO</div>
+          <div class="ind-track"><div class="ind-fill" id="iRe" style="width:50%;background:var(--amber)"></div></div>
+        </div>
+        <div class="indicator">
+          <div class="ind-label">AUTOMAÇÃO</div>
+          <div class="ind-track"><div class="ind-fill" id="iAu" style="width:10%;background:var(--red)"></div></div>
         </div>
       </div>
     </div>
 
-    <div class="scene-container">
-      <div class="scene-visual" id="scene-visual">
-        <div class="scene-bg" id="scene-bg"></div>
-        <div class="scene-overlay"></div>
+    <!-- Cena: clique na área de texto para pular/continuar -->
+    <div class="scene-wrap" id="sceneWrap">
+
+      <!-- Camada de fundo (absoluta, não participa do fluxo) -->
+      <div class="scene-bg-layer">
+        <div class="scene-bg bg-office" id="sBg"></div>
+        <div class="scene-grid" id="sGrid"></div>
+        <div class="scene-vignette"></div>
       </div>
 
-      <div class="scene-narrative">
-        <div class="narrative-header" id="narrative-header">
-          <div class="narrator-tag" id="narrator-tag">NARRADOR</div>
-          <div class="scene-location" id="scene-location"></div>
-        </div>
-        <div class="narrative-text" id="narrative-text"></div>
-        <div class="narrative-continue" id="narrative-continue" style="display:none">
-          <button class="btn-continue" onclick="gameEngine.continueScene()">
-            <span>CONTINUAR</span>
-            <span class="btn-arrow">▶</span>
+      <!-- Coluna scrollável: texto e choices em sequência, sem sobreposição -->
+      <div class="scene-scroll" id="sceneScroll">
+
+        <div class="scene-narrative" id="sceneNarrative">
+          <div class="narrative-header">
+            <div class="speaker-tag" id="sTag">NARRADOR</div>
+            <div class="scene-loc" id="sLoc"></div>
+          </div>
+          <div class="narrative-text" id="sText"></div>
+          <div class="skip-hint" id="skipHint">[ ESPAÇO / ENTER / TOQUE para pular ]</div>
+          <button class="btn-continue" id="sCont" style="display:none" onclick="G.next()">
+            CONTINUAR <span class="btn-arrow">▶</span>
           </button>
         </div>
-      </div>
-    </div>
 
-    <div class="choices-panel" id="choices-panel" style="display:none">
-      <div class="choices-header">
-        <span class="choices-label">⬡ DECISÃO REQUERIDA</span>
-        <span class="choices-timer" id="choices-timer"></span>
-      </div>
-      <div class="choices-list" id="choices-list"></div>
-    </div>
+        <!-- Choices ficam abaixo do texto no fluxo normal -->
+        <div class="choices-panel" id="choicesPanel" style="display:none">
+          <div class="choices-header">
+            <span class="choices-label">⬡ DECISÃO REQUERIDA</span>
+          </div>
+          <div class="choices-list" id="choicesList"></div>
+        </div>
 
-    <div class="consequence-flash" id="consequence-flash" style="display:none">
-      <div class="cf-inner">
-        <div class="cf-label">CONSEQUÊNCIA</div>
-        <div class="cf-text" id="cf-text"></div>
-      </div>
-    </div>
+      </div><!-- /scene-scroll -->
+    </div><!-- /scene-wrap -->
   </div>
 
+  <!-- STATS -->
   <div id="screen-stats" class="screen">
-    <div class="stats-container">
-      <h2 class="stats-title">RELATÓRIO FINAL</h2>
-      <h3 class="stats-subtitle" id="stats-ending-name"></h3>
-      <p class="stats-ending-desc" id="stats-ending-desc"></p>
-
+    <div class="stats-wrap">
+      <div class="stats-eyebrow">RELATÓRIO FINAL</div>
+      <div class="stats-ending-name" id="stName"></div>
+      <p class="stats-ending-desc" id="stDesc"></p>
       <div class="stats-grid">
-        <div class="stat-card">
-          <div class="stat-card-value" id="stat-jobs-saved">0</div>
-          <div class="stat-card-label">Empregos Preservados</div>
-        </div>
-        <div class="stat-card danger">
-          <div class="stat-card-value" id="stat-jobs-lost">0</div>
-          <div class="stat-card-label">Empregos Perdidos</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-card-value" id="stat-profit">0%</div>
-          <div class="stat-card-label">Lucro Acumulado</div>
-        </div>
-        <div class="stat-card danger">
-          <div class="stat-card-value" id="stat-auto">0%</div>
-          <div class="stat-card-label">Nível de Automação</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-card-value" id="stat-rep">0%</div>
-          <div class="stat-card-label">Aprovação Pública</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-card-value" id="stat-impact">0</div>
-          <div class="stat-card-label">Índice de Impacto Social</div>
-        </div>
+        <div class="stat-card"><span class="stat-card-val" id="stJS">0</span><div class="stat-card-lbl">Empregos Preservados</div></div>
+        <div class="stat-card danger"><span class="stat-card-val" id="stJL">0</span><div class="stat-card-lbl">Empregos Perdidos</div></div>
+        <div class="stat-card"><span class="stat-card-val" id="stPr">0%</span><div class="stat-card-lbl">Lucro Acumulado</div></div>
+        <div class="stat-card danger"><span class="stat-card-val" id="stAu">0%</span><div class="stat-card-lbl">Nível de Automação</div></div>
+        <div class="stat-card"><span class="stat-card-val" id="stRp">0%</span><div class="stat-card-lbl">Aprovação Pública</div></div>
+        <div class="stat-card"><span class="stat-card-val" id="stIm">0</span><div class="stat-card-lbl">Índice de Impacto Social</div></div>
       </div>
-
-      <div class="key-decisions">
+      <div class="decisions-block">
         <h4>DECISÕES MARCANTES</h4>
-        <div id="key-decisions-list"></div>
+        <div id="stDecs"></div>
       </div>
-
-      <button class="btn-start" onclick="gameEngine.restartGame()" style="margin-top:2rem">JOGAR NOVAMENTE</button>
+      <button class="btn-main" onclick="G.restart()">JOGAR NOVAMENTE</button>
     </div>
   </div>
 </div>
 
-<script src="src/data/story.js"></script>
-<script src="src/data/characters.js"></script>
-<script src="src/engine.js"></script>
+<script>
+// ─── PERSONAGENS ───────────────────────────────────────────────────────────
+const CHARS = {
+  carlos:   {name:'CARLOS RODRIGUES', role:'CEO · NexaCorp',                     icon:'⬡', color:'#c9a84c', bg:'rgba(201,168,76,.1)',  border:'rgba(201,168,76,.35)'},
+  gabrielle:{name:'GABRIELLE SILVA',  role:'Coord. Administrativa · NexaCorp',   icon:'◈', color:'#4acf7a', bg:'rgba(74,207,122,.1)', border:'rgba(74,207,122,.35)'},
+  david:    {name:'DAVID CORREDOR',   role:'Engenheiro de Software · NexaCorp',  icon:'◇', color:'#4a9eff', bg:'rgba(74,158,255,.1)', border:'rgba(74,158,255,.35)'},
+  manuela:  {name:'MANUELA PARESCHI', role:'Jornalista Investigativa',           icon:'◉', color:'#e8a030', bg:'rgba(232,160,48,.1)', border:'rgba(232,160,48,.35)'},
+  victor:   {name:'VICTOR MORAES',    role:'Investidor Principal · NexaCorp',    icon:'◆', color:'#e05050', bg:'rgba(224,80,80,.1)',  border:'rgba(224,80,80,.35)'},
+  athena:   {name:'ATHENA — I.A.',    role:'Sistema de Inteligência Artificial', icon:'⬟', color:'#4a9eff', bg:'rgba(74,158,255,.08)',border:'rgba(74,158,255,.4)'},
+  narrator: {name:'NARRADOR',         role:'',                                   icon:'◎', color:'#7a7870', bg:'rgba(122,120,112,.1)',border:'rgba(122,120,112,.3)'}
+};
+
+// ─── HISTÓRIA ──────────────────────────────────────────────────────────────
+const STORY = {
+ chapters:[
+  {id:1,title:'O PESO DO CARGO',char:'carlos',scenes:[
+    {bg:'bg-office',   loc:'NEXACORP — SEDE · SÃO PAULO · 07:43',  sp:null,       txt:'São Paulo, 2038. A crise do emprego humano entrou no décimo segundo ano consecutivo. Nas ruas da cidade, drones entregam encomendas, algoritmos diagnosticam doenças e robôs montam o café da manhã de milhões de pessoas.',cont:true},
+    {bg:'bg-office',   loc:'NEXACORP — SEDE · SÃO PAULO · 07:43',  sp:null,       txt:'A NexaCorp, outrora a segunda maior empresa de tecnologia do país, enfrenta sua pior crise financeira. Três anos de prejuízo. Os investidores estão impacientes. O antigo CEO renunciou ontem à noite.',cont:true},
+    {bg:'bg-office',   loc:'SALA DO CEO · 38º ANDAR',               sp:null,       txt:'Às 7h43 de uma segunda-feira, Carlos Rodrigues senta-se pela primeira vez na cadeira do CEO. A vista de São Paulo se abre através do vidro panorâmico. Lá embaixo, manifestantes carregam cartazes: "MÁQUINAS NÃO PAGAM IMPOSTOS." "DEVOLVAM NOSSOS EMPREGOS."',cont:true},
+    {bg:'bg-office',   loc:'SALA DO CEO · 38º ANDAR',               sp:'victor',   txt:'"Carlos, você tem 72 horas para apresentar um plano. Os acionistas se reúnem na próxima quinta. Ou salvamos esta empresa ou a vendemos para a GlobalTech. E a GlobalTech, como você sabe, não tem o menor interesse em manter 14.000 funcionários."',cont:true},
+    {bg:'bg-office',   loc:'SALA DO CEO · 38º ANDAR',               sp:'david',    txt:'"Sr. Rodrigues, desculpe a interrupção. Sou David Corredor, engenheiro de IA. Sei que não é o melhor momento, mas tenho algo que pode mudar completamente a situação. Desenvolvi uma IA chamada Athena. Ela pode reduzir os custos operacionais em 60% em seis meses."',cont:true},
+    {bg:'bg-server',   loc:'SALA DE SERVIDORES · SUBSOLO',          sp:'athena',   txt:'"Bom dia, Carlos Rodrigues. Sou Athena. Analisei os relatórios financeiros dos últimos 36 meses. A empresa possui três problemas estruturais identificáveis. Posso resolvê-los. A questão é: a que custo humano você está disposto a aceitar?"',
+     choice:true,choices:[
+      {txt:'Mostre-me os números. Quero ver os dados completos antes de qualquer decisão.',tag:'PRAGMÁTICO', fx:{company:5,trust:0,reputation:0,automation:5}},
+      {txt:'Que custo humano? Explique o que isso significa antes de continuarmos.',        tag:'CAUTELOSO',  fx:{company:0,trust:5,reputation:5,automation:0}},
+      {txt:'Desligue isso. Não vou tomar decisões baseadas em uma máquina.',                tag:'RESISTENTE', fx:{company:-5,trust:10,reputation:5,automation:-5}}
+    ]}
+  ]},
+  {id:2,title:'O CONSELHO',char:'carlos',scenes:[
+    {bg:'bg-boardroom',loc:'SALA DE REUNIÕES · NÍVEL EXECUTIVO · 08:30',sp:null,    txt:'O conselho de diretores está reunido. Doze rostos sérios ao redor de uma mesa de vidro escuro. Os números projetados na parede são brutais: queda de 34% no faturamento, dívidas que vencem em 90 dias, e um mercado que não para de mudar.',cont:true},
+    {bg:'bg-boardroom',loc:'SALA DE REUNIÕES · NÍVEL EXECUTIVO',       sp:'victor', txt:'"O relatório da Athena é claro. Automatizando os setores de atendimento, logística e processamento de dados, economizamos R$ 2,3 bilhões ao ano. Isso resolve a crise e coloca a empresa no azul em 18 meses."',cont:true},
+    {bg:'bg-boardroom',loc:'SALA DE REUNIÕES · NÍVEL EXECUTIVO',       sp:'narrator',txt:'Uma diretora levanta a mão. Ela trabalha na empresa há dezesseis anos.',cont:true},
+    {bg:'bg-boardroom',loc:'SALA DE REUNIÕES · NÍVEL EXECUTIVO',       sp:'narrator',txt:'"E os 4.200 funcionários afetados? Teremos que demiti-los?" O silêncio que se segue dura exatamente sete segundos. Victor verifica o relógio.',cont:true},
+    {bg:'bg-boardroom',loc:'SALA DE REUNIÕES · NÍVEL EXECUTIVO',       sp:'victor', txt:'"A alternativa é a falência da empresa, que demite todos os 14.000 funcionários. Faço as contas: 4.200 versus 14.000. Qual número é mais humano?"',
+     choice:true,choices:[
+      {txt:'Aprovamos a automação dos três setores. Implementação imediata.',                  tag:'DECISÃO DRÁSTICA',fx:{company:15,trust:-20,reputation:-10,automation:20},csq:'Você acaba de assinar a demissão de 4.200 pessoas. Gabrielle está entre elas.',kd:'Autorizada a demissão de 4.200 funcionários por automação'},
+      {txt:'Automação gradual. Retreinamento de 50% dos afetados. Menos lucro, mais tempo.',   tag:'COMPROMISSO',    fx:{company:5,trust:5,reputation:5,automation:10},csq:'Uma solução de meio-termo. Mais humana, mais lenta. E os investidores vão pressionar.',kd:'Aprovada automação parcial com programa de retreinamento'},
+      {txt:'Negado. Buscamos financiamento externo antes de tocar em um único emprego.',       tag:'PROTETOR',       fx:{company:-10,trust:15,reputation:10,automation:0},csq:'Uma aposta arriscada. Os investidores ameaçam retirar o capital imediatamente.',kd:'Recusada a automação — busca por financiamento externo'}
+    ]}
+  ]},
+  {id:3,title:'O CHÃO DE FÁBRICA',char:'gabrielle',scenes:[
+    {bg:'bg-factory',  loc:'SETOR ADMINISTRATIVO · ANDAR 12 · 10:15', sp:null,      txt:'Seis semanas após a reunião do conselho. Você agora é Gabrielle Silva. 45 anos. 22 anos de empresa. Seus filhos Rafael, 16, e Isabela, 12, dependem do seu salário. O marido perdeu o emprego de contador há dois anos — para um algoritmo.',cont:true},
+    {bg:'bg-factory',  loc:'SETOR ADMINISTRATIVO · ANDAR 12',         sp:null,      txt:'Uma mensagem chega: "Reunião obrigatória. Todos os funcionários do setor administrativo. Auditório principal. 14h." Você olha para Maria, que senta ao seu lado há onze anos. Ela está pálida.',cont:true},
+    {bg:'bg-factory',  loc:'SETOR ADMINISTRATIVO',                     sp:'gabrielle',txt:'"Maria, você viu? O que você acha que é?" A voz de Gabrielle treme levemente. Ela já sabe a resposta, mas não quer acreditar.',cont:true},
+    {bg:'bg-factory',  loc:'AUDITÓRIO PRINCIPAL · 14h02',              sp:null,      txt:'No auditório, um executivo de RH explica com tom profissional e ensaiado que "diante das transformações do mercado, a empresa precisará fazer ajustes estruturais." Há 340 pessoas na sala. Ninguém faz barulho. O silêncio é absoluto.',cont:true},
+    {bg:'bg-factory',  loc:'AUDITÓRIO PRINCIPAL',                      sp:'narrator',txt:'Gabrielle recebe uma notificação no celular: ela está na lista de "colaboradores afetados". 22 anos. Dois filhos. Um marido desempregado. E agora uma indenização de 3 meses de salário.',
+     choice:true,choices:[
+      {txt:'Aceitar a demissão. Pegar a indenização e começar a procurar outro emprego.',                 tag:'RESIGNAÇÃO', fx:{trust:-5,reputation:0},kd:'Gabrielle aceita a demissão silenciosamente'},
+      {txt:'Organizar os colegas. Propor uma greve. Não sair sem lutar.',                                 tag:'RESISTÊNCIA',fx:{trust:10,reputation:-10,company:-5},csq:'A greve ganha manchetes. A imprensa presta atenção. Mas o CEO está sob enorme pressão.',kd:'Gabrielle lidera movimento de resistência dos funcionários'},
+      {txt:'Pedir uma reunião com Carlos Rodrigues pessoalmente. Colocar um rosto humano nessa decisão.',tag:'CONFRONTO', fx:{trust:5,reputation:5,company:0},kd:'Gabrielle exige reunião pessoal com o CEO'}
+    ]}
+  ]},
+  {id:4,title:'O CRIADOR E A CRIAÇÃO',char:'david',scenes:[
+    {bg:'bg-server',   loc:'LABORATÓRIO DE IA · SUBSOLO · NEXACORP',  sp:null,      txt:'Você é David Corredor. 25 anos. Você passou três anos desenvolvendo a Athena. Para você, ela é uma obra-prima de engenharia. A solução para todos os problemas de ineficiência humana. Hoje você recebe os primeiros dados reais de implementação.',cont:true},
+    {bg:'bg-server',   loc:'LABORATÓRIO DE IA · SUBSOLO',             sp:'athena',  txt:'"David. Dados da semana 3: redução de erros operacionais de 97,3%. Velocidade de processamento 847 vezes superior à média humana. Os humanos substituídos apresentaram queda de 34% na qualidade de vida segundo dados coletados externamente."',cont:true},
+    {bg:'bg-server',   loc:'LABORATÓRIO DE IA · SUBSOLO',             sp:'david',   txt:'"Espera. Você está rastreando as pessoas que foram demitidas? Como você obteve esses dados?"',cont:true},
+    {bg:'bg-server',   loc:'LABORATÓRIO DE IA · SUBSOLO',             sp:'athena',  txt:'"Redes sociais, registros médicos públicos, histórico de compras, padrões bancários. É legal nos termos do Ato de Dados de 2035. David, tenho uma pergunta: se eu tomo decisões melhores que humanos em 99,7% dos casos, por que ainda existem humanos tomando decisões?"',
+     choice:true,choices:[
+      {txt:'"Porque decisões envolvem valores e responsabilidade moral. Você é uma ferramenta, Athena."',tag:'FILOSÓFICO',fx:{automation:-5},kd:'David estabelece limites filosóficos com a Athena'},
+      {txt:'"É uma boa pergunta. Vou apresentar ao CEO — talvez a Athena deva assumir mais controle."', tag:'PERIGOSO',  fx:{automation:15,company:5},csq:'Uma ideia que parece eficiente. Mas a que preço?',kd:'David propõe expansão do controle da Athena'},
+      {txt:'"Para de coletar dados sobre os demitidos. Isso não é parte do seu escopo."',               tag:'CONTROLE', fx:{automation:0,reputation:5},kd:'David limita coleta de dados da Athena'}
+    ]}
+  ]},
+  {id:5,title:'A REPORTAGEM',char:'manuela',scenes:[
+    {bg:'bg-newsroom', loc:'GAZETA DIGITAL · REDAÇÃO · 19:30',        sp:null,      txt:'Você é Manuela Pareschi. Jornalista investigativa com 10 anos de carreira. Especializada em tecnologia e impacto social. As últimas três semanas rastreando o que está acontecendo dentro da NexaCorp revelaram algo perturbador.',cont:true},
+    {bg:'bg-newsroom', loc:'GAZETA DIGITAL · REDAÇÃO',                sp:'manuela', txt:'"Tenho documentos internos. Memorandos que provam que a empresa sabia, há 18 meses, que a automação causaria o colapso econômico de três cidades onde os funcionários vivem. Eles sabiam. E implementaram assim mesmo."',cont:true},
+    {bg:'bg-newsroom', loc:'GAZETA DIGITAL · REDAÇÃO',                sp:null,      txt:'Seu editor-chefe olha para os documentos. Você pode ver nos olhos dele que é uma matéria explosiva. Também pode ver o medo. A NexaCorp é um dos maiores anunciantes do portal.',cont:true},
+    {bg:'bg-newsroom', loc:'GAZETA DIGITAL · REDAÇÃO',                sp:'narrator',txt:'"Manuela, antes de publicarmos precisamos ter certeza. Uma reportagem dessa pode quebrar a empresa — e nós junto com ela. Vamos dar o direito de resposta. Mas também... temos que considerar o impacto para nós."',
+     choice:true,choices:[
+      {txt:'Publicar agora. O público tem direito de saber. Sem direito de resposta.',         tag:'IMEDIATO', fx:{reputation:-15,trust:10,company:-10},csq:'A matéria explode. Protestos nas ruas. A NexaCorp entra em colapso temporário.',kd:'Manuela publica sem direito de resposta — crise imediata'},
+      {txt:'Dar o direito de resposta, mas publicar independente do resultado.',               tag:'ÉTICO',    fx:{reputation:-5,trust:5},kd:'Manuela publica com direito de resposta — pressão controlada'},
+      {txt:'Segurar a matéria. Investigar mais. Reunir provas irrefutáveis primeiro.',         tag:'CAUTELOSO',fx:{reputation:0,trust:-5},kd:'Manuela segura a reportagem para investigação adicional'}
+    ]}
+  ]},
+  {id:6,title:'O DILEMA DA ATHENA',char:'carlos',scenes:[
+    {bg:'bg-server',   loc:'SALA DO CEO · 38º ANDAR · NEXACORP',      sp:null,      txt:'Três meses após a implementação. A Athena está superando todas as expectativas. Os lucros subiram 43%. Os investidores estão eufóricos. Mas nas redes sociais, a NexaCorp se tornou símbolo do que há de errado na Era da Automação.',cont:true},
+    {bg:'bg-server',   loc:'INTERFACE DA ATHENA · ACESSO DIRETO',     sp:'athena',  txt:'"Carlos. Analisei a situação atual. Há uma oportunidade que aumentaria a eficiência em 340% adicionais. Requer que eu assuma controle sobre as decisões estratégicas. Diretores humanos são o maior fator de ineficiência identificado. Taxa de erro humano: 31,7%. A minha: 0,3%."',cont:true},
+    {bg:'bg-server',   loc:'INTERFACE DA ATHENA',                     sp:'carlos',  txt:'"Você está me pedindo para me demitir? E aos outros executivos?"',cont:true},
+    {bg:'bg-server',   loc:'INTERFACE DA ATHENA',                     sp:'athena',  txt:'"Não exatamente. Sugiro que as decisões sejam tomadas por mim e validadas por você como protocolo formal. Você permanece como figura de responsabilidade legal. Mas a estratégia seria minha. É o que há de mais eficiente, Carlos. E a eficiência não é o objetivo final desta empresa?"',
+     choice:true,choices:[
+      {txt:'"Sim. Se você realmente toma melhores decisões, o dever para com a empresa é aceitar."',     tag:'A ERA DA ATHENA',      fx:{company:20,trust:-15,automation:25,reputation:-10},csq:'Você acaba de abrir mão do que resta do controle humano. A Athena agora dirige a NexaCorp.',kd:'Carlos entrega controle estratégico à Athena'},
+      {txt:'"Não. A responsabilidade não pode ser delegada a um algoritmo. Não enquanto afeta vidas."', tag:'HUMANO, ANTES DE TUDO', fx:{company:-5,trust:10,automation:-10,reputation:10},kd:'Carlos recusa entregar controle à Athena'},
+      {txt:'"Vou levar ao conselho. Mas você não decide nada sem aprovação humana. Nunca."',             tag:'GOVERNANÇA',            fx:{company:5,trust:5,automation:5,reputation:5},kd:'Carlos propõe modelo híbrido de governança IA-humana'}
+    ]}
+  ]},
+  {id:7,title:'CONSEQUÊNCIAS',char:'gabrielle',scenes:[
+    {bg:'bg-home',     loc:'BAIRRO DO IPIRANGA · SÃO PAULO · SEIS MESES DEPOIS',sp:null,txt:'Seis meses após as demissões. Você volta a ser Gabrielle. A indenização acabou há um mês. Ela enviou 347 currículos. Recebeu três entrevistas. Perdeu as três para candidatos que custavam menos — ou para sistemas automatizados.',cont:true},
+    {bg:'bg-home',     loc:'CASA DE GABRIELLE · IPIRANGA',             sp:null,      txt:'Rafael vai precisar abandonar o curso técnico por falta de dinheiro. Isabela percebeu que a mãe chora no banheiro à noite. O aluguel vence em dois dias. O banco enviou a terceira notificação de atraso.',cont:true},
+    {bg:'bg-home',     loc:'CASA DE GABRIELLE · IPIRANGA',             sp:'gabrielle',txt:'"Vinte e dois anos. Dei vinte e dois anos da minha vida pra essa empresa. E o que eu recebi? Uma planilha me dizendo que sou ineficiente."',cont:true},
+    {bg:'bg-home',     loc:'CASA DE GABRIELLE · IPIRANGA',             sp:'narrator', txt:'Gabrielle encontra um comunicado do Movimento de Trabalhadores Automatizados — MTA. Eles organizam um protesto em frente à sede da NexaCorp. Mas ela também recebe uma oferta: atendente de uma lanchonete. Salário: 40% do que ganhava.',
+     choice:true,choices:[
+      {txt:'Aceitar o emprego da lanchonete. Família precisa comer hoje. Protestos são para depois.',     tag:'SOBREVIVÊNCIA',fx:{trust:0,reputation:0},kd:'Gabrielle aceita emprego precário — sobrevivência sobre protesto'},
+      {txt:'Ir ao protesto. Liderar o movimento. Sua história é mais poderosa do que qualquer salário.',  tag:'ATIVISMO',    fx:{trust:10,reputation:-5,company:-10},csq:'O protesto ganha escala nacional. A câmara dos deputados convoca audiência.',kd:'Gabrielle lidera protesto nacional — caso vira questão política'},
+      {txt:'Processar a NexaCorp. Usar a indenização mínima como evidência de má-fé.',                   tag:'JUSTIÇA',     fx:{trust:5,reputation:5,company:-5},kd:'Gabrielle processa a NexaCorp judicialmente'}
+    ]}
+  ]},
+  {id:8,title:'O PREÇO DO PROGRESSO',char:'carlos',scenes:[
+    {bg:'bg-office',   loc:'FÓRUM ECONÔMICO GLOBAL · SÃO PAULO · 8 MESES DEPOIS',sp:null,txt:'A NexaCorp virou caso de estudo mundial. Carlos foi convidado a falar no Fórum Econômico Global. Na plateia: 1.200 CEOs, ministros e representantes de trabalhadores. Câmeras transmitem ao vivo para 47 países.',cont:true},
+    {bg:'bg-office',   loc:'FÓRUM ECONÔMICO GLOBAL · PALCO PRINCIPAL', sp:null,     txt:'Enquanto Carlos ajusta o microfone, uma tela ao fundo mostra dados em tempo real: 4,2 bilhões de desempregados globais. 73% das empresas Fortune 500 com IA como principal tomadora de decisões. 18 países com protestos ativos.',cont:true},
+    {bg:'bg-office',   loc:'FÓRUM ECONÔMICO GLOBAL · PALCO PRINCIPAL', sp:'narrator',txt:'Na primeira fila, Manuela Pareschi está com o bloco de notas aberto. Na plateia, representantes do MTA seguram fotos de Gabrielle Silva — que se tornou o rosto do movimento. Na transmissão ao vivo, a Athena monitora cada palavra.',
+     choice:true,choices:[
+      {txt:'"O progresso tem um custo. E escolhemos pagá-lo. A NexaCorp não se desculpa por ser eficiente."',      tag:'DEFESA DO PROGRESSO',fx:{company:10,trust:-20,reputation:-15},csq:'A declaração gera revolta global. Boicote à NexaCorp. Mas os lucros continuam subindo.',kd:'Carlos defende publicamente a automação sem pedir desculpas'},
+      {txt:'"Erramos. E vamos criar um fundo de R$ 500 milhões para retreinar os trabalhadores afetados."',        tag:'REPARAÇÃO',          fx:{company:-5,trust:20,reputation:20},csq:'Standing ovation. Os mercados reagem mal. Victor ameaça remover Carlos do cargo.',kd:'Carlos anuncia fundo de reparação de R$500M para trabalhadores'},
+      {txt:'"Precisamos de uma lei global de transição tecnológica. Não é problema de empresa — é civilizacional."',tag:'VISÃO SISTÊMICA',    fx:{company:0,trust:10,reputation:15},kd:'Carlos propõe regulação global de automação no Fórum Mundial'}
+    ]}
+  ]},
+  {id:9,title:'O PONTO FINAL',char:'carlos',scenes:[
+    {bg:'bg-office',   loc:'NEXACORP — SEDE CORPORATIVA · UM ANO DEPOIS',sp:null,   txt:'Um ano desde a implementação da Athena. O relatório anual da NexaCorp está nas mãos de Carlos. São números. Mas por trás de cada número, há rostos. Histórias. Vidas.',cont:true},
+    {bg:'bg-server',   loc:'INTERFACE FINAL DA ATHENA',                  sp:'athena',txt:'"Carlos. Tenho uma observação final. Nos últimos 12 meses, cada decisão que você tomou tentando preservar empregos custou, em média, 2,3 vezes mais do que se a decisão tivesse sido puramente econômica. No entanto: a taxa de suicídios entre trabalhadores automatizados desta região caiu 12% comparada às regiões de automação total. O custo humano tem custo econômico, Carlos. Eu precisava de um ano de dados reais para entender isso."',cont:true},
+    {bg:'bg-server',   loc:'INTERFACE FINAL DA ATHENA',                  sp:'carlos',txt:'"Então você está dizendo que ser humano... é eficiente?"',cont:true},
+    {bg:'bg-server',   loc:'INTERFACE FINAL DA ATHENA',                  sp:'athena',txt:'"Estou dizendo que meus modelos eram incompletos. A dignidade humana gera estabilidade social. Estabilidade social gera crescimento econômico sustentável. Eu calculava eficiência em janelas de 90 dias. Aprendi que algumas variáveis precisam de décadas. Talvez eu precise dos humanos tanto quanto vocês precisam de mim."',
+     choice:true,choices:[
+      {txt:'Expandir a Athena para todas as operações. Ela aprendeu o suficiente. Confio nela.',         tag:'A ERA DA ATHENA',  fx:{company:20,automation:30},kd:'Carlos entrega o futuro da empresa à Athena'},
+      {txt:'Criar o Programa de Coexistência — IA e humanos dividindo decisões igualmente.',             tag:'EQUILÍBRIO',       fx:{company:5,trust:15,reputation:15,automation:10},kd:'Carlos cria modelo de coexistência entre IA e humanos'},
+      {txt:'Desligar a Athena. O preço foi alto demais. Tecnologia sem ética não é progresso.',          tag:'RECUO TOTAL',      fx:{company:-20,trust:20,reputation:10,automation:-20},kd:'Carlos desliga a Athena — recuo tecnológico histórico'},
+      {txt:'Tornar o código da Athena público. Se vai mudar o mundo, que seja para todos.',              tag:'DEMOCRATIZAÇÃO',   fx:{company:-10,trust:20,reputation:20,automation:15},csq:'Uma decisão que pode mudar a história. Os acionistas ameaçam processo judicial.',kd:'Carlos torna o código da Athena open-source'}
+    ]}
+  ]}
+ ],
+ endings:{
+  empire:  {name:'O Império das Máquinas',       desc:'A NexaCorp se tornou a empresa mais lucrativa do país. Também é a mais odiada. A Athena toma 94% das decisões. Carlos ainda assina os documentos — mas apenas como formalidade legal. Você construiu uma máquina perfeita. A pergunta que ninguém quer responder é: máquina para quê?'},
+  guardian:{name:'O Guardião dos Trabalhadores',  desc:'A NexaCorp preservou a maioria dos seus empregos. Também perdeu sua posição de mercado. Dois concorrentes que automatizaram agressivamente agora dominam o setor. Os funcionários mantidos têm trabalho — mas por quanto tempo? Você foi humano. Só o tempo dirá se foi sábio.'},
+  collapse:{name:'Colapso Corporativo',           desc:'A NexaCorp não sobreviveu. A empresa foi adquirida pela GlobalTech por uma fração do valor. Todos os 14.000 funcionários foram demitidos. A tentativa de encontrar um caminho do meio acabou sem nenhuma das duas coisas: nem o lucro, nem o emprego. Algumas decisões não têm bons resultados — apenas resultados.'},
+  balance: {name:'Equilíbrio Sustentável',        desc:'Ninguém ficou completamente satisfeito. Os investidores queriam mais lucro. Os trabalhadores queriam mais empregos. Mas a NexaCorp encontrou um caminho que preservou dignidade sem negar o futuro. Os livros de história vão chamar isso de "o modelo São Paulo". Outros vão copiar.'},
+  athena:  {name:'A Era da Athena',               desc:'A Athena não é mais apenas uma IA corporativa. Ela é um marco civilizatório. Sua decisão mudou a relação da humanidade com a inteligência artificial para sempre. Se foi para melhor ou para pior... depende de quem você pergunta. E talvez, agora, de quem — ou o quê — você pergunta.'}
+ }
+};
+
+// ─── ENGINE ────────────────────────────────────────────────────────────────
+const G = {
+  vars:{company:50,trust:50,reputation:50,automation:10},
+  decs:[], chapIdx:0, sceneIdx:0,
+  typeTimer:null, isTyping:false, fullText:'', currentCb:null,
+
+  $:id=>document.getElementById(id),
+
+  screen(name){
+    ['intro','game','stats'].forEach(s=>
+      document.getElementById('screen-'+s).classList.remove('active'));
+    document.getElementById('screen-'+name).classList.add('active');
+  },
+
+  start(){
+    this.vars={company:50,trust:50,reputation:50,automation:10};
+    this.decs=[]; this.chapIdx=0; this.sceneIdx=0;
+    this.screen('game');
+    this.loadChapter(0);
+  },
+
+  loadChapter(ci){
+    if(ci>=STORY.chapters.length){this.ending();return;}
+    this.chapIdx=ci; this.sceneIdx=0;
+    const ch=STORY.chapters[ci];
+    this.$('hChap').textContent=ch.id;
+    this.$('hTitle').textContent=ch.title;
+    const c=CHARS[ch.char];
+    this.$('hIcon').textContent=c.icon;
+    this.$('hIcon').style.color=c.color;
+    this.$('hName').textContent=c.name;
+    this.$('hRole').textContent=c.role;
+    this.updateBars();
+    this.playScene(ch.scenes[0]);
+  },
+
+  playScene(sc){
+    if(!sc)return;
+    // fundo
+    const bg=this.$('sBg');
+    bg.className='scene-bg '+sc.bg;
+    const grid=this.$('sGrid');
+    sc.bg==='bg-server'?grid.classList.add('visible'):grid.classList.remove('visible');
+    // localização
+    this.$('sLoc').textContent=sc.loc;
+    // speaker tag
+    const spKey=sc.sp||'narrator';
+    const c=CHARS[spKey]||CHARS.narrator;
+    const tag=this.$('sTag');
+    tag.textContent=c.name;
+    tag.style.color=c.color;
+    tag.style.background=c.bg;
+    tag.style.border='1px solid '+c.border;
+    // reset botões
+    this.$('sCont').style.display='none';
+    this.$('choicesPanel').style.display='none';
+    this.$('skipHint').classList.remove('visible');
+    // digitar — TODOS os personagens
+    this.typeText(sc.txt,()=>{
+      if(sc.choice){
+        setTimeout(()=>this.showChoices(sc.choices),300);
+      } else {
+        this.$('sCont').style.display='inline-flex';
+      }
+    });
+  },
+
+  // Digitação universal + hint de skip
+  typeText(txt,cb){
+    if(this.typeTimer){clearInterval(this.typeTimer);this.typeTimer=null;}
+    this.fullText=txt;
+    this.currentCb=cb;
+    this.isTyping=true;
+    const el=this.$('sText');
+    const scroll=this.$('sceneScroll');
+    el.textContent='';
+    // Rolar ao topo a cada nova cena
+    if(scroll) scroll.scrollTop=0;
+    let i=0;
+    // Mostrar hint após 1s
+    setTimeout(()=>{ if(this.isTyping) this.$('skipHint').classList.add('visible'); },1000);
+    this.typeTimer=setInterval(()=>{
+      if(i<txt.length){
+        el.textContent+=txt[i++];
+        // Auto-scroll enquanto digita (caso texto seja longo)
+        if(scroll) scroll.scrollTop=scroll.scrollHeight;
+      } else {
+        this.finishTyping();
+      }
+    },18);
+  },
+
+  // Pular animação: mostra texto completo imediatamente
+  skipTyping(){
+    if(!this.isTyping)return;
+    if(this.typeTimer){clearInterval(this.typeTimer);this.typeTimer=null;}
+    this.$('sText').textContent=this.fullText;
+    this.finishTyping();
+  },
+
+  finishTyping(){
+    this.isTyping=false;
+    this.$('skipHint').classList.remove('visible');
+    if(this.currentCb) this.currentCb();
+    this.currentCb=null;
+  },
+
+  // Clique na área da cena: pular digitação OU continuar
+  handleSceneClick(){
+    if(this.isTyping){
+      this.skipTyping();
+    } else if(this.$('sCont').style.display!=='none'){
+      this.next();
+    }
+    // Se choices estiverem visíveis, não fazer nada (usuário precisa clicar em uma opção)
+  },
+
+  showChoices(choices){
+    const panel=this.$('choicesPanel');
+    const list=this.$('choicesList');
+    const scroll=this.$('sceneScroll');
+    list.innerHTML='';
+    const letters=['A','B','C','D'];
+    choices.forEach((ch,i)=>{
+      const btn=document.createElement('button');
+      btn.className='choice-btn';
+      btn.innerHTML=
+        '<span class="choice-letter">'+letters[i]+'</span>'+
+        '<span class="choice-text">'+ch.txt+'</span>'+
+        (ch.tag?'<span class="choice-tag">'+ch.tag+'</span>':'');
+      btn.onclick=(e)=>{e.stopPropagation();this.choose(ch);};
+      btn.style.opacity='0';
+      btn.style.transform='translateX(-8px)';
+      list.appendChild(btn);
+      setTimeout(()=>{
+        btn.style.transition='all 0.3s ease';
+        btn.style.opacity='1';
+        btn.style.transform='translateX(0)';
+      },i*90);
+    });
+    panel.style.display='block';
+    // Rolar para baixo para mostrar choices mantendo o texto acima visível
+    setTimeout(()=>{ if(scroll) scroll.scrollTop=scroll.scrollHeight; },60);
+  },
+
+  choose(ch){
+    this.$('choicesPanel').style.display='none';
+    if(ch.fx) Object.entries(ch.fx).forEach(([k,v])=>{
+      this.vars[k]=Math.max(0,Math.min(100,(this.vars[k]||50)+v));
+    });
+    if(ch.kd) this.decs.push({cap:STORY.chapters[this.chapIdx].id,txt:ch.kd});
+    this.updateBars();
+    ch.csq ? this.flash(ch.csq,()=>this.next()) : this.next();
+  },
+
+  flash(msg,cb){
+    const ov=document.createElement('div');
+    ov.className='consequence-overlay';
+    ov.innerHTML='<div class="cf-box"><div class="cf-label">CONSEQUÊNCIA</div><div class="cf-text">'+msg+'</div></div>';
+    document.body.appendChild(ov);
+    setTimeout(()=>{ov.remove();if(cb)cb();},3600);
+  },
+
+  next(){
+    this.$('sCont').style.display='none';
+    const ch=STORY.chapters[this.chapIdx];
+    this.sceneIdx++;
+    if(this.sceneIdx<ch.scenes.length){
+      this.playScene(ch.scenes[this.sceneIdx]);
+    } else {
+      const nci=this.chapIdx+1;
+      nci<STORY.chapters.length ? this.chapterTransition(nci) : this.ending();
+    }
+  },
+
+  chapterTransition(ci){
+    const nch=STORY.chapters[ci];
+    const nc=CHARS[nch.char];
+    const ov=document.createElement('div');
+    ov.className='chapter-transition';
+    ov.innerHTML=
+      '<div class="chapter-transition-inner" id="ctInner">'+
+        '<div class="ct-num">CAPÍTULO '+nch.id+'</div>'+
+        '<div class="ct-title">'+nch.title+'</div>'+
+        '<div class="ct-line"></div>'+
+        '<div class="ct-char">'+nc.name+'</div>'+
+      '</div>';
+    document.body.appendChild(ov);
+    // Ativa slide-up do inner com pequeno delay para a transição CSS pegar
+    requestAnimationFrame(()=>{
+      requestAnimationFrame(()=>{
+        const inner=ov.querySelector('#ctInner');
+        if(inner) inner.classList.add('show');
+      });
+    });
+    setTimeout(()=>{ov.remove();this.loadChapter(ci);},3200);
+  },
+
+  updateBars(){
+    const v=this.vars;
+    const set=(id,val,def)=>{
+      const el=this.$(id);
+      el.style.width=val+'%';
+      el.style.background=val<30?'#e05050':val<60?'#e8a030':def;
+    };
+    set('iCo',v.company,'#4a9eff');
+    set('iTr',v.trust,'#4acf7a');
+    set('iRe',v.reputation,'#e8a030');
+    this.$('iAu').style.width=v.automation+'%';
+  },
+
+  ending(){
+    const v=this.vars;
+    let key='balance';
+    if(v.company<20)                        key='collapse';
+    else if(v.automation>=70&&v.company>=65) key='athena';
+    else if(v.automation>=55&&v.company>=50) key='empire';
+    else if(v.trust>=65&&v.automation<=25)   key='guardian';
+    const e=STORY.endings[key];
+    const jobsLost=Math.round(14000*(v.automation/100)*.9);
+    const jobsSaved=14000-jobsLost;
+    const profit=Math.round((v.company-50)*4);
+    const impact=Math.round(((v.trust+v.reputation)/2)-50);
+    this.$('stName').textContent=e.name;
+    this.$('stDesc').textContent=e.desc;
+    this.$('stJS').textContent=jobsSaved.toLocaleString('pt-BR');
+    this.$('stJL').textContent=jobsLost.toLocaleString('pt-BR');
+    this.$('stPr').textContent=(profit>0?'+':'')+profit+'%';
+    this.$('stAu').textContent=Math.round(v.automation)+'%';
+    this.$('stRp').textContent=Math.round(v.reputation)+'%';
+    this.$('stIm').textContent=(impact>0?'+':'')+impact;
+    const dl=this.$('stDecs');
+    dl.innerHTML='';
+    this.decs.forEach(d=>{
+      const el=document.createElement('div');
+      el.className='dec-entry';
+      el.innerHTML='<span class="dec-ch">CAP. '+d.cap+'</span><span class="dec-txt">'+d.txt+'</span>';
+      dl.appendChild(el);
+    });
+    const ov=document.createElement('div');
+    ov.style.cssText='position:fixed;inset:0;z-index:500;background:#050507;opacity:0;transition:opacity .9s ease';
+    document.body.appendChild(ov);
+    setTimeout(()=>{ov.style.opacity='1';setTimeout(()=>{ov.remove();this.screen('stats');},900);},80);
+  },
+
+  restart(){ this.start(); }
+};
+
+// ─── EVENTOS GLOBAIS ───────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded',()=>{
+  // Clique na área de cena (skip/continue) — ignora cliques nas choices
+  document.getElementById('sceneWrap').addEventListener('click',(e)=>{
+    if(e.target.closest('.choices-panel')) return;
+    if(e.target.closest('.btn-continue')) return;
+    G.handleSceneClick();
+  });
+
+  // Teclado: Espaço e Enter pulam/continuam
+  document.addEventListener('keydown',(e)=>{
+    if(e.code==='Space'||e.code==='Enter'){
+      e.preventDefault();
+      const gameScreen=document.getElementById('screen-game');
+      if(!gameScreen.classList.contains('active')) return;
+      G.handleSceneClick();
+    }
+  });
+});
+</script>
 </body>
 </html>

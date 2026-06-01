@@ -591,7 +591,7 @@ const STORY = {
               text: '"O progresso tem um custo. E escolhemos pagá-lo. A NexaCorp não se desculpa por ser eficiente."',
               tag: 'DEFESA DO PROGRESSO',
               effect: { company: +10, trust: -20, reputation: -15 },
-              consequence: 'A declaração gera revolta global. Boicote à NexaCorp. Mas os lucros continuam subindo.',
+              consequence: 'A declaração gera revolta global. Boicote à NexaCorp. Mas os  ros continuam subindo.',
               keyDecision: 'Carlos defende publicamente a automação sem pedir desculpas'
             },
             {
